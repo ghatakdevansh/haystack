@@ -94,6 +94,15 @@ class MilvusDocumentStore(SQLDocumentStore):
         :param progress_bar: Whether to show a tqdm progress bar or not.
                              Can be helpful to disable in production deployments to keep the logs clean.
         """
+
+        # save init parameters to enable export of component config as YAML
+        self.set_config(
+            sql_url=sql_url, milvus_url=milvus_url, connection_pool=connection_pool, index=index, vector_dim=vector_dim,
+            index_file_size=index_file_size, similarity=similarity, index_type=index_type, index_param=index_param,
+            search_param=search_param, update_existing_documents=update_existing_documents,
+            return_embedding=return_embedding, embedding_field=embedding_field, progress_bar=progress_bar,
+        )
+
         self.milvus_server = Milvus(uri=milvus_url, pool=connection_pool)
         self.vector_dim = vector_dim
         self.index_file_size = index_file_size
@@ -258,7 +267,8 @@ class MilvusDocumentStore(SQLDocumentStore):
             only_documents_without_embedding=not update_existing_embeddings
         )
         batched_documents = get_batches_from_generator(result, batch_size)
-        with tqdm(total=document_count, disable=not self.progress_bar) as progress_bar:
+        with tqdm(total=document_count, disable=not self.progress_bar, position=0, unit=" docs",
+                  desc="Updating Embedding") as progress_bar:
             for document_batch in batched_documents:
                 self._delete_vector_ids_from_milvus(documents=document_batch, index=index)
 
@@ -275,8 +285,8 @@ class MilvusDocumentStore(SQLDocumentStore):
                     vector_id_map[doc.id] = vector_id
 
                 self.update_vector_ids(vector_id_map, index=index)
+                progress_bar.set_description_str("Documents Processed")
                 progress_bar.update(batch_size)
-        progress_bar.close()
 
         self.milvus_server.flush([index])
         self.milvus_server.compact(collection_name=index)
@@ -348,8 +358,24 @@ class MilvusDocumentStore(SQLDocumentStore):
                         Example: {"name": ["some", "more"], "category": ["only_one"]}
         :return: None
         """
+        logger.warning(
+                """DEPRECATION WARNINGS: 
+                1. delete_all_documents() method is deprecated, please use delete_documents method
+                For more details, please refer to the issue: https://github.com/deepset-ai/haystack/issues/1045
+                """
+        )
+        self.delete_documents(index, filters)
+
+    def delete_documents(self, index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None):
+        """
+        Delete all documents (from SQL AND Milvus).
+        :param index: (SQL) index name for storing the docs and metadata
+        :param filters: Optional filters to narrow down the search space.
+                        Example: {"name": ["some", "more"], "category": ["only_one"]}
+        :return: None
+        """
         index = index or self.index
-        super().delete_all_documents(index=index, filters=filters)
+        super().delete_documents(index=index, filters=filters)
         status, ok = self.milvus_server.has_collection(collection_name=index)
         if status.code != Status.SUCCESS:
             raise RuntimeError(f'Milvus has collection check failed: {status}')

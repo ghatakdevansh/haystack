@@ -93,7 +93,7 @@ class ElasticsearchDocumentStore(BaseDocumentStore)
 #### \_\_init\_\_
 
 ```python
- | __init__(host: Union[str, List[str]] = "localhost", port: Union[int, List[int]] = 9200, username: str = "", password: str = "", api_key_id: Optional[str] = None, api_key: Optional[str] = None, index: str = "document", label_index: str = "label", search_fields: Union[str, list] = "text", text_field: str = "text", name_field: str = "name", embedding_field: str = "embedding", embedding_dim: int = 768, custom_mapping: Optional[dict] = None, excluded_meta_data: Optional[list] = None, faq_question_field: Optional[str] = None, analyzer: str = "standard", scheme: str = "http", ca_certs: Optional[str] = None, verify_certs: bool = True, create_index: bool = True, update_existing_documents: bool = False, refresh_type: str = "wait_for", similarity="dot_product", timeout=30, return_embedding: bool = False)
+ | __init__(host: Union[str, List[str]] = "localhost", port: Union[int, List[int]] = 9200, username: str = "", password: str = "", api_key_id: Optional[str] = None, api_key: Optional[str] = None, aws4auth=None, index: str = "document", label_index: str = "label", search_fields: Union[str, list] = "text", text_field: str = "text", name_field: str = "name", embedding_field: str = "embedding", embedding_dim: int = 768, custom_mapping: Optional[dict] = None, excluded_meta_data: Optional[list] = None, faq_question_field: Optional[str] = None, analyzer: str = "standard", scheme: str = "http", ca_certs: Optional[str] = None, verify_certs: bool = True, create_index: bool = True, update_existing_documents: bool = False, refresh_type: str = "wait_for", similarity="dot_product", timeout=30, return_embedding: bool = False)
 ```
 
 A DocumentStore using Elasticsearch to store and query the documents for our search.
@@ -110,6 +110,7 @@ A DocumentStore using Elasticsearch to store and query the documents for our sea
 - `password`: password (standard authentication via http_auth)
 - `api_key_id`: ID of the API key (altenative authentication mode to the above http_auth)
 - `api_key`: Secret value of the API key (altenative authentication mode to the above http_auth)
+- `aws4auth`: Authentication for usage with aws elasticsearch (can be generated with the requests-aws4auth package)
 - `index`: Name of index in elasticsearch to use for storing the documents that we want to search. If not existing yet, we will create one.
 - `label_index`: Name of index in elasticsearch to use for storing labels. If not existing yet, we will create one.
 - `search_fields`: Name of fields used by ElasticsearchRetriever to find matches in the docs to our incoming query (using elastic's multi_match query), e.g. ["title", "full_text"]
@@ -250,6 +251,15 @@ Return the number of documents in the document store.
 
 Return the number of labels in the document store
 
+<a name="elasticsearch.ElasticsearchDocumentStore.get_embedding_count"></a>
+#### get\_embedding\_count
+
+```python
+ | get_embedding_count(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None) -> int
+```
+
+Return the count of embeddings in the document store.
+
 <a name="elasticsearch.ElasticsearchDocumentStore.get_all_documents"></a>
 #### get\_all\_documents
 
@@ -376,6 +386,24 @@ None
 
 ```python
  | delete_all_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
+```
+
+Delete documents in an index. All documents are deleted if no filters are passed.
+
+**Arguments**:
+
+- `index`: Index name to delete the document from.
+- `filters`: Optional filters to narrow down the documents to be deleted.
+
+**Returns**:
+
+None
+
+<a name="elasticsearch.ElasticsearchDocumentStore.delete_documents"></a>
+#### delete\_documents
+
+```python
+ | delete_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
 ```
 
 Delete documents in an index. All documents are deleted if no filters are passed.
@@ -541,6 +569,15 @@ None
 
 Return the number of documents in the document store.
 
+<a name="memory.InMemoryDocumentStore.get_embedding_count"></a>
+#### get\_embedding\_count
+
+```python
+ | get_embedding_count(filters: Optional[Dict[str, List[str]]] = None, index: Optional[str] = None) -> int
+```
+
+Return the count of embeddings in the document store.
+
 <a name="memory.InMemoryDocumentStore.get_label_count"></a>
 #### get\_label\_count
 
@@ -582,6 +619,24 @@ Return all labels in the document store
 
 ```python
  | delete_all_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
+```
+
+Delete documents in an index. All documents are deleted if no filters are passed.
+
+**Arguments**:
+
+- `index`: Index name to delete the document from.
+- `filters`: Optional filters to narrow down the documents to be deleted.
+
+**Returns**:
+
+None
+
+<a name="memory.InMemoryDocumentStore.delete_documents"></a>
+#### delete\_documents
+
+```python
+ | delete_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
 ```
 
 Delete documents in an index. All documents are deleted if no filters are passed.
@@ -652,13 +707,6 @@ Fetch documents by specifying a list of text id strings
 ```
 
 Fetch documents by specifying a list of text vector id strings
-
-**Arguments**:
-
-- `vector_ids`: List of vector_id strings.
-- `index`: Name of the index to get the documents from. If None, the
-              DocumentStore's default index (self.index) will be used.
-- `batch_size`: When working with large number of documents, batching can help reduce memory footprint.
 
 <a name="sql.SQLDocumentStore.get_all_documents_generator"></a>
 #### get\_all\_documents\_generator
@@ -791,6 +839,24 @@ Delete documents in an index. All documents are deleted if no filters are passed
 
 None
 
+<a name="sql.SQLDocumentStore.delete_documents"></a>
+#### delete\_documents
+
+```python
+ | delete_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
+```
+
+Delete documents in an index. All documents are deleted if no filters are passed.
+
+**Arguments**:
+
+- `index`: Index name to delete the document from.
+- `filters`: Optional filters to narrow down the documents to be deleted.
+
+**Returns**:
+
+None
+
 <a name="faiss"></a>
 # Module faiss
 
@@ -813,7 +879,7 @@ the vector embeddings are indexed in a FAISS Index.
 #### \_\_init\_\_
 
 ```python
- | __init__(sql_url: str = "sqlite:///", vector_dim: int = 768, faiss_index_factory_str: str = "Flat", faiss_index: Optional[faiss.swigfaiss.Index] = None, return_embedding: bool = False, update_existing_documents: bool = False, index: str = "document", similarity: str = "dot_product", embedding_field: str = "embedding", progress_bar: bool = True, **kwargs, ,)
+ | __init__(sql_url: str = "sqlite:///", vector_dim: int = 768, faiss_index_factory_str: str = "Flat", faiss_index: Optional["faiss.swigfaiss.Index"] = None, return_embedding: bool = False, update_existing_documents: bool = False, index: str = "document", similarity: str = "dot_product", embedding_field: str = "embedding", progress_bar: bool = True, **kwargs, ,)
 ```
 
 **Arguments**:
@@ -829,7 +895,6 @@ the vector embeddings are indexed in a FAISS Index.
                                 - "HNSW": Graph-based heuristic. If not further specified,
                                           we use the following config:
                                           HNSW64, efConstruction=80 and efSearch=20
-
                                 - "IVFx,Flat": Inverted Index. Replace x with the number of centroids aka nlist.
                                                   Rule of thumb: nlist = 10 * sqrt (num_docs) is a good starting point.
                                 For more details see:
@@ -917,6 +982,15 @@ a large number of documents without having to load all documents in memory.
 - `return_embedding`: Whether to return the document embeddings.
 - `batch_size`: When working with large number of documents, batching can help reduce memory footprint.
 
+<a name="faiss.FAISSDocumentStore.get_embedding_count"></a>
+#### get\_embedding\_count
+
+```python
+ | get_embedding_count(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None) -> int
+```
+
+Return the count of embeddings in the document store.
+
 <a name="faiss.FAISSDocumentStore.train_index"></a>
 #### train\_index
 
@@ -943,6 +1017,15 @@ None
 
 ```python
  | delete_all_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
+```
+
+Delete all documents from the document store.
+
+<a name="faiss.FAISSDocumentStore.delete_documents"></a>
+#### delete\_documents
+
+```python
+ | delete_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
 ```
 
 Delete all documents from the document store.
@@ -1171,6 +1254,25 @@ Delete all documents (from SQL AND Milvus).
 
 None
 
+<a name="milvus.MilvusDocumentStore.delete_documents"></a>
+#### delete\_documents
+
+```python
+ | delete_documents(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None)
+```
+
+Delete all documents (from SQL AND Milvus).
+
+**Arguments**:
+
+- `index`: (SQL) index name for storing the docs and metadata
+- `filters`: Optional filters to narrow down the search space.
+                Example: {"name": ["some", "more"], "category": ["only_one"]}
+
+**Returns**:
+
+None
+
 <a name="milvus.MilvusDocumentStore.get_all_documents_generator"></a>
 #### get\_all\_documents\_generator
 
@@ -1257,4 +1359,13 @@ Helper function to dump all vectors stored in Milvus server.
 **Returns**:
 
 List[np.array]: List of vectors.
+
+<a name="milvus.MilvusDocumentStore.get_embedding_count"></a>
+#### get\_embedding\_count
+
+```python
+ | get_embedding_count(index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None) -> int
+```
+
+Return the count of embeddings in the document store.
 

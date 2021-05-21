@@ -3,7 +3,7 @@ from typing import List, Union, Optional
 import torch
 import numpy as np
 from pathlib import Path
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from haystack.document_store.base import BaseDocumentStore
 from haystack import Document
@@ -97,6 +97,16 @@ class DensePassageRetriever(BaseRetriever):
         :param progress_bar: Whether to show a tqdm progress bar or not.
                              Can be helpful to disable in production deployments to keep the logs clean.
         """
+
+        # save init parameters to enable export of component config as YAML
+        self.set_config(
+            document_store=document_store, query_embedding_model=query_embedding_model,
+            passage_embedding_model=passage_embedding_model, single_model_path=single_model_path,
+            model_version=model_version, max_seq_len_query=max_seq_len_query, max_seq_len_passage=max_seq_len_passage,
+            top_k=top_k, use_gpu=use_gpu, batch_size=batch_size, embed_title=embed_title,
+            use_fast_tokenizers=use_fast_tokenizers, infer_tokenizer_classes=infer_tokenizer_classes,
+            similarity_function=similarity_function, progress_bar=progress_bar,
+        )
 
         self.document_store = document_store
         self.batch_size = batch_size
@@ -230,16 +240,19 @@ class DensePassageRetriever(BaseRetriever):
         else:
             disable_tqdm = not self.progress_bar
 
-        for i, batch in enumerate(tqdm(data_loader, desc=f"Creating Embeddings", unit=" Batches", disable=disable_tqdm)):
-            batch = {key: batch[key].to(self.device) for key in batch}
+        with tqdm(total=len(data_loader)*self.batch_size, unit=" Docs", desc=f"Create embeddings", position=1,
+                  leave=False, disable=disable_tqdm) as progress_bar:
+            for batch in data_loader:
+                batch = {key: batch[key].to(self.device) for key in batch}
 
-            # get logits
-            with torch.no_grad():
-                query_embeddings, passage_embeddings = self.model.forward(**batch)[0]
-                if query_embeddings is not None:
-                    all_embeddings["query"].append(query_embeddings.cpu().numpy())
-                if passage_embeddings is not None:
-                    all_embeddings["passages"].append(passage_embeddings.cpu().numpy())
+                # get logits
+                with torch.no_grad():
+                    query_embeddings, passage_embeddings = self.model.forward(**batch)[0]
+                    if query_embeddings is not None:
+                        all_embeddings["query"].append(query_embeddings.cpu().numpy())
+                    if passage_embeddings is not None:
+                        all_embeddings["passages"].append(passage_embeddings.cpu().numpy())
+                progress_bar.update(self.batch_size)
 
         if all_embeddings["passages"]:
             all_embeddings["passages"] = np.concatenate(all_embeddings["passages"])
@@ -295,6 +308,7 @@ class DensePassageRetriever(BaseRetriever):
               weight_decay: float = 0.0,
               num_warmup_steps: int = 100,
               grad_acc_steps: int = 1,
+              use_amp: str = None,
               optimizer_name: str = "TransformersAdamW",
               optimizer_correct_bias: bool = True,
               save_dir: str = "../saved_models/dpr",
@@ -322,6 +336,12 @@ class DensePassageRetriever(BaseRetriever):
         :param epsilon: epsilon parameter of optimizer
         :param weight_decay: weight decay parameter of optimizer
         :param grad_acc_steps: number of steps to accumulate gradient over before back-propagation is done
+        :param use_amp: Whether to use automatic mixed precision (AMP) or not. The options are:
+                    "O0" (FP32)
+                    "O1" (Mixed Precision)
+                    "O2" (Almost FP16)
+                    "O3" (Pure FP16).
+                    For more information, refer to: https://nvidia.github.io/apex/amp.html
         :param optimizer_name: what optimizer to use (default: TransformersAdamW)
         :param num_warmup_steps: number of warmup steps
         :param optimizer_correct_bias: Whether to correct bias in optimizer
@@ -354,7 +374,8 @@ class DensePassageRetriever(BaseRetriever):
             n_batches=len(data_silo.loaders["train"]),
             n_epochs=n_epochs,
             grad_acc_steps=grad_acc_steps,
-            device=self.device
+            device=self.device,
+            use_amp=use_amp
         )
 
         # 6. Feed everything to the Trainer, which keeps care of growing our model and evaluates it from time to time
@@ -367,6 +388,7 @@ class DensePassageRetriever(BaseRetriever):
             lr_schedule=lr_schedule,
             evaluate_every=evaluate_every,
             device=self.device,
+            use_amp=use_amp
         )
 
         # 7. Let it grow! Watch the tracked metrics live on the public mlflow server: https://public-mlflow.deepset.ai
@@ -461,6 +483,14 @@ class EmbeddingRetriever(BaseRetriever):
                                      Default: -1 (very last layer).
         :param top_k: How many documents to return per query.
         """
+
+        # save init parameters to enable export of component config as YAML
+        self.set_config(
+            document_store=document_store, embedding_model=embedding_model, model_version=model_version,
+            use_gpu=use_gpu, model_format=model_format, pooling_strategy=pooling_strategy,
+            emb_extraction_layer=emb_extraction_layer, top_k=top_k,
+        )
+
         self.document_store = document_store
         self.model_format = model_format
         self.pooling_strategy = pooling_strategy

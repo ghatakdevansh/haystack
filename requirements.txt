@@ -30,3 +30,4 @@ networkx
 #selenium
 #webdriver-manager
 SPARQLWrapper
+mmh3

@@ -77,6 +77,15 @@ class FAISSDocumentStore(SQLDocumentStore):
         :param progress_bar: Whether to show a tqdm progress bar or not.
                              Can be helpful to disable in production deployments to keep the logs clean.
         """
+
+        # save init parameters to enable export of component config as YAML
+        self.set_config(
+            sql_url=sql_url, vector_dim=vector_dim, faiss_index_factory_str=faiss_index_factory_str,
+            faiss_index=faiss_index, return_embedding=return_embedding,
+            update_existing_documents=update_existing_documents, index=index, similarity=similarity,
+            embedding_field=embedding_field, progress_bar=progress_bar
+        )
+
         self.vector_dim = vector_dim
         self.faiss_index_factory_str = faiss_index_factory_str
         self.faiss_indexes: Dict[str, faiss.swigfaiss.Index] = {}
@@ -226,7 +235,8 @@ class FAISSDocumentStore(SQLDocumentStore):
             only_documents_without_embedding=not update_existing_embeddings
         )
         batched_documents = get_batches_from_generator(result, batch_size)
-        with tqdm(total=document_count, disable=not self.progress_bar) as progress_bar:
+        with tqdm(total=document_count, disable=not self.progress_bar, position=0, unit=" docs",
+                  desc="Updating Embedding") as progress_bar:
             for document_batch in batched_documents:
                 embeddings = retriever.embed_passages(document_batch)  # type: ignore
                 assert len(document_batch) == len(embeddings)
@@ -239,8 +249,8 @@ class FAISSDocumentStore(SQLDocumentStore):
                     vector_id_map[doc.id] = vector_id
                     vector_id += 1
                 self.update_vector_ids(vector_id_map, index=index)
+                progress_bar.set_description_str("Documents Processed")
                 progress_bar.update(batch_size)
-        progress_bar.close()
 
     def get_all_documents(
         self,
@@ -339,12 +349,24 @@ class FAISSDocumentStore(SQLDocumentStore):
         """
         Delete all documents from the document store.
         """
+        logger.warning(
+                """DEPRECATION WARNINGS: 
+                1. delete_all_documents() method is deprecated, please use delete_documents method
+                For more details, please refer to the issue: https://github.com/deepset-ai/haystack/issues/1045
+                """
+        )
+        self.delete_documents(index, filters)
+
+    def delete_documents(self, index: Optional[str] = None, filters: Optional[Dict[str, List[str]]] = None):
+        """
+        Delete all documents from the document store.
+        """
         if filters:
             logger.warning("Filters are not supported for deleting documents in FAISSDocumentStore.")
         index = index or self.index
         if index in self.faiss_indexes.keys():
             self.faiss_indexes[index].reset()
-        super().delete_all_documents(index=index)
+        super().delete_documents(index=index)
 
     def query_by_embedding(
         self,

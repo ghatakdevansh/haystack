@@ -344,7 +344,7 @@ Embeddings of documents / passages shape (batch_size, embedding_dim)
 #### train
 
 ```python
- | train(data_dir: str, train_filename: str, dev_filename: str = None, test_filename: str = None, max_processes: int = 128, dev_split: float = 0, batch_size: int = 2, embed_title: bool = True, num_hard_negatives: int = 1, num_positives: int = 1, n_epochs: int = 3, evaluate_every: int = 1000, n_gpu: int = 1, learning_rate: float = 1e-5, epsilon: float = 1e-08, weight_decay: float = 0.0, num_warmup_steps: int = 100, grad_acc_steps: int = 1, optimizer_name: str = "TransformersAdamW", optimizer_correct_bias: bool = True, save_dir: str = "../saved_models/dpr", query_encoder_save_dir: str = "query_encoder", passage_encoder_save_dir: str = "passage_encoder")
+ | train(data_dir: str, train_filename: str, dev_filename: str = None, test_filename: str = None, max_sample: int = None, max_processes: int = 128, dev_split: float = 0, batch_size: int = 2, embed_title: bool = True, num_hard_negatives: int = 1, num_positives: int = 1, n_epochs: int = 3, evaluate_every: int = 1000, n_gpu: int = 1, learning_rate: float = 1e-5, epsilon: float = 1e-08, weight_decay: float = 0.0, num_warmup_steps: int = 100, grad_acc_steps: int = 1, use_amp: str = None, optimizer_name: str = "TransformersAdamW", optimizer_correct_bias: bool = True, save_dir: str = "../saved_models/dpr", query_encoder_save_dir: str = "query_encoder", passage_encoder_save_dir: str = "passage_encoder")
 ```
 
 train a DensePassageRetrieval model
@@ -355,6 +355,7 @@ train a DensePassageRetrieval model
 - `train_filename`: training filename
 - `dev_filename`: development set filename, file to be used by model in eval step of training
 - `test_filename`: test set filename, file to be used by model in test step after training
+- `max_sample`: maximum number of input samples to convert. Can be used for debugging a smaller dataset.
 - `max_processes`: the maximum number of processes to spawn in the multiprocessing.Pool used in DataSilo.
                       It can be set to 1 to disable the use of multiprocessing or make debugging easier.
 - `dev_split`: The proportion of the train set that will sliced. Only works if dev_filename is set to None
@@ -369,6 +370,12 @@ train a DensePassageRetrieval model
 - `epsilon`: epsilon parameter of optimizer
 - `weight_decay`: weight decay parameter of optimizer
 - `grad_acc_steps`: number of steps to accumulate gradient over before back-propagation is done
+- `use_amp`: Whether to use automatic mixed precision (AMP) or not. The options are:
+            "O0" (FP32)
+            "O1" (Mixed Precision)
+            "O2" (Almost FP16)
+            "O3" (Pure FP16).
+            For more information, refer to: https://nvidia.github.io/apex/amp.html
 - `optimizer_name`: what optimizer to use (default: TransformersAdamW)
 - `num_warmup_steps`: number of warmup steps
 - `optimizer_correct_bias`: Whether to correct bias in optimizer

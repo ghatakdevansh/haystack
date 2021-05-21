@@ -22,9 +22,9 @@ class TransformersSummarizer(BaseSummarizer):
         **Example**
 
         ```python
-        |     docs = [Document(text="PG&E stated it scheduled the blackouts in response to forecasts for high winds amid dry conditions.
-        |            The aim is to reduce the risk of wildfires. Nearly 800 thousand customers were scheduled to be affected by
-        |            the shutoffs which were expected to last through at least midday tomorrow.")]
+        |     docs = [Document(text="PG&E stated it scheduled the blackouts in response to forecasts for high winds amid dry conditions."
+        |            "The aim is to reduce the risk of wildfires. Nearly 800 thousand customers were scheduled to be affected by"
+        |            "the shutoffs which were expected to last through at least midday tomorrow.")]
         |
         |     # Summarize
         |     summary = summarizer.predict(
@@ -40,7 +40,7 @@ class TransformersSummarizer(BaseSummarizer):
         |        "text": "California's largest electricity provider has turned off power to hundreds of thousands of customers.",
         |        ...
         |        "meta": {
-        |          "context": "PGE stated it scheduled the blackouts in response to forecasts for high winds amid dry conditions. ....
+        |          "context": "PGE stated it scheduled the blackouts in response to forecasts for high winds amid dry conditions. ..."
         |              },
         |        ...
         |      },
@@ -61,8 +61,8 @@ class TransformersSummarizer(BaseSummarizer):
     ):
         """
         Load a Summarization model from Transformers.
-        See the up-to-date list of available models on
-        `huggingface.co/models <https://huggingface.co/models?filter=summarization>`__
+        See the up-to-date list of available models at
+        https://huggingface.co/models?filter=summarization
 
         :param model_name_or_path: Directory of a saved model or the name of a public model e.g.
                                    'facebook/rag-token-nq', 'facebook/rag-sequence-nq'.
@@ -80,6 +80,14 @@ class TransformersSummarizer(BaseSummarizer):
                                         be summarized.
                                         Important: The summary will depend on the order of the supplied documents!
         """
+
+        # save init parameters to enable export of component config as YAML
+        self.set_config(
+            model_name_or_path=model_name_or_path, model_version=model_version, tokenizer=tokenizer,
+            max_length=max_length, min_length=min_length, use_gpu=use_gpu,
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces,
+            separator_for_single_summary=separator_for_single_summary, generate_single_summary=generate_single_summary,
+        )
 
         # TODO AutoModelForSeq2SeqLM is only necessary with transformers==4.1.1, with newer versions use the pipeline directly
         if tokenizer is None:
